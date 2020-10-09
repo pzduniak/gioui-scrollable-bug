@@ -5,6 +5,7 @@ import (
 
 	"gioui.org/f32"
 	"gioui.org/gesture"
+	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
@@ -29,10 +30,6 @@ func NewScrollable(
 	scrollToEnd bool,
 ) *Scrollable {
 	return &Scrollable{
-		list: &layout.List{
-			Alignment:   alignment,
-			ScrollToEnd: scrollToEnd,
-		},
 		indicator: &scroll.Scrollable{},
 	}
 }
@@ -76,13 +73,13 @@ func (s *Scrollable) Layout(gtx layout.Context, widget layout.Widget) layout.Dim
 				s.currentTotalHeight = dims.Size.Y
 
 				// scrollbar logic
+				if d := s.gesture.Scroll(gtx.Metric, gtx, gtx.Now, gesture.Vertical); d != 0 {
+					s.currentOffset += d
+				}
 				if scrolled, progress := s.indicator.Scrolled(); scrolled {
 					s.currentOffset = int(float32(dims.Size.Y) * progress)
 				}
 				// gesture logic
-				if d := s.gesture.Scroll(gtx.Metric, gtx, gtx.Now, gesture.Vertical); d != 0 {
-					s.currentOffset += d
-				}
 				if s.currentOffset+s.currentHeight > s.currentTotalHeight {
 					s.currentOffset = s.currentTotalHeight - s.currentHeight
 					if s.gesture.State() == gesture.StateFlinging {
@@ -128,11 +125,9 @@ func (s *Scrollable) Layout(gtx layout.Context, widget layout.Widget) layout.Dim
 		)
 	}
 
-	return layout.Inset{
+	dims := layout.Inset{
 		Right: scrollbarPadding,
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		s.gesture.Add(gtx.Ops)
-
 		return layout.Flex{
 			Axis:      layout.Horizontal,
 			Spacing:   layout.SpaceBetween,
@@ -142,4 +137,7 @@ func (s *Scrollable) Layout(gtx layout.Context, widget layout.Widget) layout.Dim
 			flexChildren...,
 		)
 	})
+	pointer.Rect(image.Rect(0, 0, dims.Size.X, dims.Size.Y)).Add(gtx.Ops)
+	s.gesture.Add(gtx.Ops)
+	return dims
 }
